@@ -69,6 +69,14 @@ function msg_error() {
   echo -e "${BFR} ${CROSS} ${RD}${msg}${CL}"
 }
 
+function wrap_noproxy() {
+  ( \
+  export -n ALL_PROXY http_proxy https_proxy SSL_CERT_FILE ; \
+  unset ALL_PROXY http_proxy https_proxy SSL_CERT_FILE ; \
+  exec ${@} \
+  )
+}
+
 # This checks for the presence of valid Container Storage and Template Storage locations
 msg_info "Validating Storage"
 VALIDCT=$(pvesm status -content rootdir | awk 'NR>1')
@@ -142,17 +150,27 @@ if pct status $CTID &>/dev/null; then
   exit "Cannot use ID that is already in use."
 fi
 
+if test -n $OVERRIDE_TEMPLATE_STORAGE ; then
+  TEMPLATE_STORAGE=$OVERRIDE_TEMPLATE_STORAGE
+else
+
 # Get template storage
 TEMPLATE_STORAGE=$(select_storage template) || exit
+fi
 msg_ok "Using ${BL}$TEMPLATE_STORAGE${CL} ${GN}for Template Storage."
+
+if test -n $OVERRIDE_CONTAINER_STORAGE ; then
+  CONTAINER_STORAGE=$OVERRIDE_CONTAINER_STORAGE
+else
 
 # Get container storage
 CONTAINER_STORAGE=$(select_storage container) || exit
+fi
 msg_ok "Using ${BL}$CONTAINER_STORAGE${CL} ${GN}for Container Storage."
 
 # Update LXC template list
 msg_info "Updating LXC Template List"
-pveam update >/dev/null
+wrap_noproxy pveam update > /dev/null
 msg_ok "Updated LXC Template List"
 
 # Get LXC template string

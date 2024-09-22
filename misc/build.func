@@ -1,3 +1,6 @@
+SELFNAME="$(basename "${0%%.sh}")"
+SELFDIR="$(pwd)"
+
 variables() {
   NSAPP=$(echo ${APP,,} | tr -d ' ') # This function sets the NSAPP variable by converting the value of the APP variable to lowercase and removing any spaces.
   var_install="${NSAPP}-install"     # sets the var_install variable by appending "-install" to the value of NSAPP.
@@ -34,6 +37,7 @@ error_handler() {
   local command="$2"
   local error_message="${RD}[ERROR]${CL} in line ${RD}$line_number${CL}: exit code ${RD}$exit_code${CL}: while executing command ${YW}$command${CL}"
   echo -e "\n$error_message\n"
+  echo "CTID=$CTID"
 }
 
 # This function displays a spinner.
@@ -117,6 +121,7 @@ arch_check() {
 
 # This function checks if the script is running through SSH and prompts the user to confirm if they want to proceed or exit.
 ssh_check() {
+  if [ "$OVERRIDE_SSH" -eq 1 ] ; then return ; fi
   if command -v pveversion >/dev/null 2>&1 && [ -n "${SSH_CLIENT:+x}" ]; then
     if whiptail --backtitle "Proxmox VE Helper Scripts" --defaultno --title "SSH DETECTED" --yesno "It's advisable to utilize the Proxmox shell rather than SSH, as there may be potential complications with variable retrieval. Proceed using SSH?" 10 72; then
       whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox --title "Proceed using SSH" "You've chosen to proceed using SSH. If any issues arise, please run the script in the Proxmox shell before creating a repository issue." 10 72
@@ -477,6 +482,15 @@ advanced_settings() {
   fi
 }
 
+apply_settings_overrides() {
+  unset OVERRIDE_TEMPLATE_STORAGE
+  unset OVERRIDE_CONTAINER_STORAGE
+  if test -e "${APP}.override.conf" ; then
+    echo -e "${DGN}Apply overrides: ${BGN}${APP}.override.conf${CL}"
+    source ${APP}.override.conf
+  fi
+}
+
 install_script() {
   pve_check
   shell_check
@@ -490,7 +504,10 @@ install_script() {
   NEXTID=$(pvesh get /cluster/nextid)
   timezone=$(cat /etc/timezone)
   header_info
-  if (whiptail --backtitle "Proxmox VE Helper Scripts" --title "SETTINGS" --yesno "Use Default Settings?" --no-button Advanced 10 58); then
+
+  apply_settings_overrides
+
+  if [ "$OVERRIDE_DEFAULTS" != "advanced" ] || (whiptail --backtitle "Proxmox VE Helper Scripts" --title "SETTINGS" --yesno "Use Default Settings?" --no-button Advanced 10 58); then
     header_info
     echo -e "${BL}Using Default Settings${CL}"
     default_settings
@@ -502,6 +519,8 @@ install_script() {
 }
 
 start() {
+  apply_settings_overrides
+
   if command -v pveversion >/dev/null 2>&1; then
     if ! (whiptail --backtitle "Proxmox VE Helper Scripts" --title "${APP} LXC" --yesno "To ensure the safety of your system, please only use https://tteck.github.io/Proxmox/\n\nThis will create a New ${APP} LXC. Proceed?" 10 58); then
       clear
@@ -569,7 +588,14 @@ build_container() {
     $PW
   "
   # This executes create_lxc.sh and creates the container and .conf file
-  bash -c "$(wget -qLO - https://raw.githubusercontent.com/tteck/Proxmox/main/ct/create_lxc.sh)" || exit
+  echo ALL_PROXY=${ALL_PROXY:-}
+  echo http_proxy=${http_proxy:-}
+  echo https_proxy=${https_proxy:-}
+  echo SSL_CERT_FILE=${SSL_CERT_FILE:-}
+
+  export OVERRIDE_TEMPLATE_STORAGE
+  export OVERRIDE_CONTAINER_STORAGE
+  bash -c "$(wget --ca-certificate=$SSL_CERT_FILE -qLO - https://raw.githubusercontent.com/tteck/Proxmox/main/ct/create_lxc.sh)"
 
   LXC_CONFIG=/etc/pve/lxc/${CTID}.conf
   if [ "$CT_TYPE" == "0" ]; then
@@ -633,8 +659,14 @@ http://dl-cdn.alpinelinux.org/alpine/latest-stable/community
 EOF'
     pct exec "$CTID" -- ash -c "apk add bash >/dev/null"
   fi
-  lxc-attach -n "$CTID" -- bash -c "$(wget -qLO - https://raw.githubusercontent.com/tteck/Proxmox/main/install/$var_install.sh)" || exit
+  #export -p | grep -i proxy
+  test -e "$SSL_CERT_FILE" && pct exec "$CTID" -- mkdir -p $(dirname "$SSL_CERT_FILE") \
+    && pct push "$CTID" "$SSL_CERT_FILE" "$SSL_CERT_FILE"
+  lxc-attach -n "$CTID" -- bash -c "$(wget --ca-certificate=$SSL_CERT_FILE -qLO - https://raw.githubusercontent.com/tteck/Proxmox/main/install/$var_install.sh)" || exit
+  pct exec "$CTID" -- rm -rf $(dirname "$SSL_CERT_FILE")
 
+  echo "CTID=$CTID" > "$SELFDIR/$SELFNAME.result.txt"
+  echo "APP=$APP" >> "$SELFDIR/$SELFNAME.result.txt"
 }
 
 # This function sets the description of the container.
