@@ -17,6 +17,8 @@ MYIP=$(ip  -j a show dev vmbr0|jq '.[].addr_info|first( .[] | select(.family == 
 PROXY=${TTECK_PROXY:-$MYIP}
 CONFDIR=/tmp/.mitmproxy
 
+file -e "$MITMDUMP" || { echo "mitmdump not found!" ; exit 1; }
+
 # Curl proxying - vars will flow into the container it seems
 # But the certs would fail then...
 export ALL_PROXY=http://$PROXY:$MITMPORT
@@ -47,6 +49,8 @@ echo TTECK_REPO=$TTECK_REPO
 screen -X -S mitmdump quit || true
 # killall mitmdump || true
 screen -d -m -S mitmdump $MITMDUMP -v -v  -p $MITMPORT --set confdir=$CONFDIR --map-local '|raw.githubusercontent.com/tteck/Proxmox/main|'$TTECK_REPO >> /tmp/mitm.log 2>&1
+
+if [ $? -ne 0 ] ; then echo "Failed to start mitmdump screen session" ; exit 1 ; fi
 
 # wait for it to be ready
 
