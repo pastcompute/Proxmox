@@ -2,6 +2,8 @@
 # source this file with arg find to set ALL_PROXY and SSL_CERT_FILE
 # otherwise just export it manually
 # Ideally need to make it work like pyenv instead
+#
+# At present this is all dreadfully insecure but it gets the job done for the moment
 
 # wget https://downloads.mitmproxy.org/10.4.2/mitmproxy-10.4.2-linux-x86_64.tar.gz
 # tar xzf mitmproxy-10.4.2-linux-x86_64.tar.gz
@@ -9,10 +11,10 @@
 MITMDUMP=/home/demo/mitmdump
 MITMPORT=12347
 # We cant use local host, incredibly ALL_PROXY seems to inherit into the damn comntainers during install
+# In the future we might be able to make a local bridge network to fix that
 # mitmdump --listen-host $LOCAL
-# We need a way to learn the proxmos host IP and also provide that to the conatiner
-#PROXY=127.0.0.1
-PROXY=172.30.42.33
+MYIP=$(ip  -j a show dev vmbr0|jq '.[].addr_info|first( .[] | select(.family == "inet"))|.local' -r)
+PROXY=${TTECK_PROXY:-$MYIP}
 CONFDIR=/tmp/.mitmproxy
 
 # Curl proxying - vars will flow into the container it seems
