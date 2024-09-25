@@ -27,10 +27,10 @@ export SSL_CERT_FILE=$CONFDIR/mitmproxy-ca-cert.pem
 # I havent worked out how to get mitmproxy to put this somewhere else
 
 if [ "$1" == "find" ] ; then
-  echo ALL_PROXY=$ALL_PROXY
-  echo http_proxy=$http_proxy
-  echo https_proxy=$https_proxy
-  echo SSL_CERT_FILE=$SSL_CERT_FILE
+  echo export ALL_PROXY=$ALL_PROXY
+  echo export http_proxy=$http_proxy
+  echo export https_proxy=$https_proxy
+  echo export SSL_CERT_FILE=$SSL_CERT_FILE
   return
 fi
 
