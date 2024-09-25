@@ -17,7 +17,7 @@ MYIP=$(ip  -j a show dev vmbr0|jq '.[].addr_info|first( .[] | select(.family == 
 PROXY=${TTECK_PROXY:-$MYIP}
 CONFDIR=/tmp/.mitmproxy
 
-file -e "$MITMDUMP" || { echo "mitmdump not found!" ; exit 1; }
+test -e "$MITMDUMP" || { echo "mitmdump not found!" ; exit 1; }
 
 # Curl proxying - vars will flow into the container it seems
 # But the certs would fail then...
