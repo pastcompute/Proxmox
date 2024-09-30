@@ -121,7 +121,7 @@ arch_check() {
 
 # This function checks if the script is running through SSH and prompts the user to confirm if they want to proceed or exit.
 ssh_check() {
-  if [ "$OVERRIDE_SSH" -eq 1 ] ; then return ; fi
+  if [ "${OVERRIDE_SSH:-0}" -eq 1 ] ; then return ; fi
   if command -v pveversion >/dev/null 2>&1 && [ -n "${SSH_CLIENT:+x}" ]; then
     if whiptail --backtitle "Proxmox VE Helper Scripts" --defaultno --title "SSH DETECTED" --yesno "It's advisable to utilize the Proxmox shell rather than SSH, as there may be potential complications with variable retrieval. Proceed using SSH?" 10 72; then
       whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox --title "Proceed using SSH" "You've chosen to proceed using SSH. If any issues arise, please run the script in the Proxmox shell before creating a repository issue." 10 72
@@ -485,9 +485,14 @@ advanced_settings() {
 apply_settings_overrides() {
   unset OVERRIDE_TEMPLATE_STORAGE
   unset OVERRIDE_CONTAINER_STORAGE
+  echo -e "${CL}${DGN}Apply overrides: ${BGN}common.override.conf${CL}"
+  source "common.override.conf" >& 2
+
   if test -e "${APP}.override.conf" ; then
-    echo -e "${DGN}Apply overrides: ${BGN}${APP}.override.conf${CL}"
-    source ${APP}.override.conf
+    echo -e "${CL}${DGN}Apply overrides: ${BGN}${APP}.override.conf${CL}"
+    source "${APP}.override.conf" >& 2 || true
+  else
+    echo -e "${CL}${DGN}Apply overrides NOT PRESENT: ${BGN}${APP}.override.conf${CL}"
   fi
 }
 
@@ -592,6 +597,7 @@ build_container() {
   echo http_proxy=${http_proxy:-}
   echo https_proxy=${https_proxy:-}
   echo SSL_CERT_FILE=${SSL_CERT_FILE:-}
+  echo WGETRC=${WGETRC:-}
 
   export OVERRIDE_TEMPLATE_STORAGE
   export OVERRIDE_CONTAINER_STORAGE
@@ -659,9 +665,11 @@ http://dl-cdn.alpinelinux.org/alpine/latest-stable/community
 EOF'
     pct exec "$CTID" -- ash -c "apk add bash >/dev/null"
   fi
-  #export -p | grep -i proxy
+
   test -e "$SSL_CERT_FILE" && pct exec "$CTID" -- mkdir -p $(dirname "$SSL_CERT_FILE") \
     && pct push "$CTID" "$SSL_CERT_FILE" "$SSL_CERT_FILE"
+  test -e "$WGETRC" && pct push "$CTID" "$WGETRC" "$WGETRC" || true
+
   lxc-attach -n "$CTID" -- bash -c "$(wget --ca-certificate=$SSL_CERT_FILE -qLO - https://raw.githubusercontent.com/tteck/Proxmox/main/install/$var_install.sh)" || exit
   pct exec "$CTID" -- rm -rf $(dirname "$SSL_CERT_FILE")
 

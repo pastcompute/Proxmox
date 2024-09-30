@@ -35,9 +35,9 @@ catch_errors() {
 
 # This function handles errors
 error_handler() {
+  local exit_code="$?"
   if [ -n "$SPINNER_PID" ] && ps -p $SPINNER_PID > /dev/null; then kill $SPINNER_PID > /dev/null; fi
   printf "\e[?25h"
-  local exit_code="$?"
   local line_number="$1"
   local command="$2"
   local error_message="${RD}[ERROR]${CL} in line ${RD}$line_number${CL}: exit code ${RD}$exit_code${CL}: while executing command ${YW}$command${CL}"
@@ -202,8 +202,4 @@ EOF
   chmod +x /usr/bin/update
 }
 
-msg_ok ALL_PROXY=${ALL_PROXY:-}
-msg_ok http_proxy=${http_proxy:-}
-msg_ok https_proxy=${https_proxy:-}
-msg_ok SSL_CERT_FILE=${SSL_CERT_FILE:-}  # outside of container. need it inside. doh
 export ALL_PROXY SSL_CERT_FILE http_proxy https_proxy

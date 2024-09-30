@@ -33,6 +33,7 @@ if [ "$1" == "find" ] ; then
   echo export http_proxy=$http_proxy
   echo export https_proxy=$https_proxy
   echo export SSL_CERT_FILE=$SSL_CERT_FILE
+
   return
 fi
 
@@ -55,4 +56,4 @@ if [ $? -ne 0 ] ; then echo "Failed to start mitmdump screen session" ; exit 1 ;
 # wait for it to be ready
 
 while ! curl --output /dev/null --silent --head --fail https://raw.githubusercontent.com; do sleep 0.1 && echo -n .; done
-echo ready
+echo -e '\necho Now run: `source proxy_wrap_tteck.sh find` as normal user\n'
